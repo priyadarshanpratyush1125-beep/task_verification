@@ -1,12 +1,27 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from datetime import datetime
+from enum import Enum
+
+class TaskStatusEnum(str, Enum):
+    pending = "Pending"
+    submitted = "Submitted"
+    approved = "Approved"
+    rejected = "Rejected"
+
+class TaskPriorityEnum(str, Enum):
+    low = "Low"
+    medium = "Medium"
+    high = "High"
+    critical = "Critical"
 
 class TaskBase(BaseModel):
     title: str
+    description: Optional[str] = ""
     assigned_to: str # User ID
-    status: str = "Pending"
-    priority: str = "High"
+    department: str
+    status: TaskStatusEnum = TaskStatusEnum.pending
+    priority: TaskPriorityEnum = TaskPriorityEnum.high
     remarks: Optional[str] = ""
     proof_image: Optional[str] = ""
     dynamic_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
