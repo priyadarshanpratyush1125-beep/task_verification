@@ -1,15 +1,16 @@
-import { useState, useContext } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { User, Mail, Lock, AlertCircle } from 'lucide-react';
+import api from '../api/axios';
 
-const Login = () => {
+const Register = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('employee'); // Default role
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -18,35 +19,34 @@ const Login = () => {
     setLoading(true);
     
     try {
-      const user = await login(email, password);
-      if (user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/employee/dashboard');
-      }
+      await api.post('/api/auth/register', {
+        name,
+        email,
+        password,
+        role
+      });
+      // Automatically redirect to login after successful registration
+      navigate('/login', { state: { message: 'Registration successful! Please login.' } });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to login. Please check your credentials.');
+      setError(err.response?.data?.detail || 'Failed to register. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const location = useLocation();
-  const successMessage = location.state?.message;
+  const handleOAuthLogin = (provider) => {
+    // Note: To make this functional, we will need to set up OAuth keys for Google/Microsoft 
+    // and implement the backend callback logic.
+    alert(`Sign in with ${provider} is not yet configured with API keys.`);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900">Welcome Back</h1>
-          <p className="text-sm text-slate-500 mt-2">Sign in to your account</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Create an Account</h1>
+          <p className="text-sm text-slate-500 mt-2">Join the Task Verification Portal</p>
         </div>
-
-        {successMessage && (
-          <div className="mb-4 p-4 bg-green-50 text-green-700 rounded-lg flex items-center text-sm">
-            {successMessage}
-          </div>
-        )}
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center text-sm">
@@ -55,7 +55,24 @@ const Login = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-slate-400" />
+              </div>
+              <input
+                type="text"
+                required
+                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
             <div className="relative">
@@ -65,7 +82,7 @@ const Login = () => {
               <input
                 type="email"
                 required
-                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm transition-colors"
+                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -82,7 +99,8 @@ const Login = () => {
               <input
                 type="password"
                 required
-                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm transition-colors"
+                minLength="6"
+                className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -90,15 +108,27 @@ const Login = () => {
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Account Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+            >
+              <option value="employee">Employee</option>
+              <option value="admin">Admin / Supervisor</option>
+            </select>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-70"
+            className="w-full flex justify-center mt-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-70"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
-
+        
         <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -111,7 +141,7 @@ const Login = () => {
 
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button
-              onClick={() => alert("Sign in with Google is not yet configured with API keys.")}
+              onClick={() => handleOAuthLogin('Google')}
               className="w-full flex justify-center items-center py-2 px-4 border border-slate-200 rounded-lg shadow-sm bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -123,7 +153,7 @@ const Login = () => {
               Google
             </button>
             <button
-              onClick={() => alert("Sign in with Microsoft is not yet configured with API keys.")}
+              onClick={() => handleOAuthLogin('Microsoft')}
               className="w-full flex justify-center items-center py-2 px-4 border border-slate-200 rounded-lg shadow-sm bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <svg className="h-5 w-5 mr-2" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
@@ -139,9 +169,9 @@ const Login = () => {
         </div>
 
         <p className="mt-8 text-center text-sm text-slate-600">
-          Don't have an account yet?{' '}
-          <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
-            Create one now
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+            Sign in here
           </Link>
         </p>
       </div>
@@ -149,4 +179,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;
