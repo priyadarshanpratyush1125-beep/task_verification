@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -28,6 +29,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['employee']}>
                 <EmployeeDashboard />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             } 
           />

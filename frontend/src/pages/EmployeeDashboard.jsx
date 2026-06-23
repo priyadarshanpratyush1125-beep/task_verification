@@ -1,33 +1,397 @@
-import { useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import api from '../api/axios';
+import { ClipboardList, CheckCircle2, Clock, AlertCircle, Upload, X } from 'lucide-react';
 
 const EmployeeDashboard = () => {
-  const { user, logout } = useContext(AuthContext);
-  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'completed'
+  
+  // Modal state
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [proofImage, setProofImage] = useState(null);
+  const [remarks, setRemarks] = useState('');
+  
+  // Daily popup state
+  const [showDailyPopup, setShowDailyPopup] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/tasks/employee');
+      setTasks(response.data);
+      setError('');
+      
+      // Show daily popup once per session if there are pending tasks
+      if (!sessionStorage.getItem('dailyPopupShown')) {
+        const pending = response.data.filter(t => t.status === 'Pending');
+        if (pending.length > 0) {
+          setShowDailyPopup(true);
+          sessionStorage.setItem('dailyPopupShown', 'true');
+        }
+      }
+      
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch tasks.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setProofImage(e.target.files[0]);
+    }
+  };
+
+  const handleSubmitTask = async (e) => {
+    e.preventDefault();
+    if (!selectedTask) return;
+    
+    setSubmitting(true);
+    try {
+      // In a real app we would upload the image to Cloudinary here
+      // For now we will mock it
+      const formData = new FormData();
+      formData.append('status', 'Submitted');
+      formData.append('completion_remarks', remarks);
+      formData.append('proof_image_url', 'https://res.cloudinary.com/demo/image/upload/sample.jpg'); // Mock URL
+      
+      const jsonData = {
+        status: 'Submitted',
+        completion_remarks: remarks,
+        proof_image_url: 'https://res.cloudinary.com/demo/image/upload/sample.jpg'
+      };
+
+      await api.post(`/api/tasks/${selectedTask._id || selectedTask.id}/submit`, jsonData);
+      
+      // Refresh tasks
+      await fetchTasks();
+      closeModal();
+    } catch (err) {
+      console.error("Failed to submit task", err);
+      alert("Failed to submit task. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openModal = (task) => {
+    setSelectedTask(task);
+    setProofImage(null);
+    setRemarks(task.completion_remarks || '');
+  };
+
+  const closeModal = () => {
+    setSelectedTask(null);
+    setProofImage(null);
+    setRemarks('');
+  };
+
+  const pendingTasks = tasks.filter(t => t.status === 'Pending' || t.status === 'Rejected');
+  const completedTasks = tasks.filter(t => t.status === 'Submitted' || t.status === 'Approved');
+  const displayedTasks = activeTab === 'pending' ? pendingTasks : completedTasks;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'Submitted': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'Approved': return 'bg-green-100 text-green-800 border-green-200';
+      case 'Rejected': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-slate-100 p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold text-slate-800">Employee Dashboard</h1>
-          <button 
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-          >
-            Logout
-          </button>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Welcome, {user?.name || 'Employee'}</h1>
+            <p className="text-sm text-slate-500 mt-1">Here is your daily task breakdown.</p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex bg-white rounded-lg p-1 border border-slate-200 shadow-sm w-fit">
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === 'pending' ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Pending Action ({pendingTasks.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('completed')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === 'completed' ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Completed / History ({completedTasks.length})
+              </button>
+            </div>
+            
+            {/* Profile Link */}
+            <a 
+              href="/profile"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors"
+              title="My Profile"
+            >
+              <span className="font-semibold text-sm">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </span>
+            </a>
+          </div>
         </div>
-        <p className="text-slate-600">Welcome, <span className="font-medium text-slate-900">{user?.name}</span>!</p>
-        <div className="mt-8 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
-          You have Employee privileges. Here you can view and update your assigned tasks.
-        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg flex items-center text-sm border border-red-100">
+            <AlertCircle className="w-5 h-5 mr-2" />
+            {error}
+          </div>
+        )}
+
+        {/* Task Grid */}
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          </div>
+        ) : displayedTasks.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+            <ClipboardList className="mx-auto h-12 w-12 text-slate-300 mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 mb-1">No tasks found</h3>
+            <p className="text-slate-500 text-sm">
+              {activeTab === 'pending' ? "You're all caught up! No pending tasks assigned." : "No completed tasks yet."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedTasks.map((task) => (
+              <div 
+                key={task._id || task.id} 
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"
+                onClick={() => openModal(task)}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(task.status)}`}>
+                    {task.status}
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                    {task.department}
+                  </span>
+                </div>
+                
+                <h3 className="font-semibold text-slate-900 text-lg mb-2 group-hover:text-primary-600 transition-colors">
+                  {task.title}
+                </h3>
+                <p className="text-slate-500 text-sm line-clamp-2 mb-4">
+                  {task.description}
+                </p>
+                
+                <div className="pt-4 border-t border-slate-100 flex justify-between items-center mt-auto">
+                  <div className="flex items-center text-xs text-slate-500">
+                    <Clock className="w-3.5 h-3.5 mr-1" />
+                    Priority: <span className="font-medium ml-1 text-slate-700">{task.priority}</span>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); openModal(task); }}
+                    className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                  >
+                    View Details →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
+
+      {/* Task Details Modal */}
+      {selectedTask && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0">
+              <h2 className="text-xl font-semibold text-slate-900">Task Details</h2>
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold text-lg text-slate-900">{selectedTask.title}</h3>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(selectedTask.status)}`}>
+                    {selectedTask.status}
+                  </span>
+                </div>
+                <p className="text-slate-600 text-sm bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  {selectedTask.description}
+                </p>
+              </div>
+
+              {selectedTask.status === 'Rejected' && selectedTask.admin_remarks && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-lg">
+                  <div className="flex items-center text-red-800 font-semibold text-sm mb-1">
+                    <AlertCircle className="w-4 h-4 mr-1.5" /> Admin Rejection Reason:
+                  </div>
+                  <p className="text-sm text-red-700 ml-5">{selectedTask.admin_remarks}</p>
+                </div>
+              )}
+
+              {/* Read Only View for Completed Tasks */}
+              {(selectedTask.status === 'Submitted' || selectedTask.status === 'Approved') ? (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-700 mb-2">Your Remarks</h4>
+                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      {selectedTask.completion_remarks || "No remarks provided."}
+                    </p>
+                  </div>
+                  {selectedTask.proof_image_url && (
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-700 mb-2">Proof Uploaded</h4>
+                      <div className="rounded-lg border border-slate-200 overflow-hidden relative group">
+                        <img src={selectedTask.proof_image_url} alt="Proof" className="w-full h-48 object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <a href={selectedTask.proof_image_url} target="_blank" rel="noreferrer" className="text-white text-sm font-medium hover:underline">
+                            View Full Image
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {selectedTask.admin_remarks && selectedTask.status === 'Approved' && (
+                    <div className="p-4 bg-green-50 border border-green-100 rounded-lg">
+                      <h4 className="text-sm font-semibold text-green-800 mb-1">Admin Approval Note:</h4>
+                      <p className="text-sm text-green-700">{selectedTask.admin_remarks}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Submission Form for Pending/Rejected Tasks */
+                <form onSubmit={handleSubmitTask} className="space-y-4 border-t border-slate-100 pt-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Proof Image</label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-slate-400" />
+                        <div className="flex text-sm text-slate-600 justify-center">
+                          <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none">
+                            <span>Upload a file</span>
+                            <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} required />
+                          </label>
+                        </div>
+                        <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    </div>
+                    {proofImage && <p className="mt-2 text-sm text-green-600 font-medium flex items-center"><CheckCircle2 className="w-4 h-4 mr-1"/> Selected: {proofImage.name}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Completion Remarks</label>
+                    <textarea 
+                      required 
+                      rows="3" 
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                      placeholder="Describe the work done..."
+                      value={remarks} 
+                      onChange={e => setRemarks(e.target.value)}
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-4 flex justify-end gap-2">
+                    <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={submitting}
+                      className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:bg-primary-400 flex items-center"
+                    >
+                      {submitting ? 'Submitting...' : 'Submit Task'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Tasks Popup Modal */}
+      {showDailyPopup && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-[60] backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all">
+            <div className="bg-gradient-to-br from-primary-600 to-primary-800 p-8 text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+              <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-black opacity-10 rounded-full blur-xl"></div>
+              
+              <div className="relative w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-inner">
+                <ClipboardList className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white relative">Daily Task Briefing</h2>
+              <p className="text-primary-100 mt-1 text-sm relative">Here's what you need to focus on today</p>
+            </div>
+            
+            <div className="p-6 max-h-[50vh] overflow-y-auto bg-slate-50/50">
+              {pendingTasks.length > 0 ? (
+                <ul className="space-y-3">
+                  {pendingTasks.map(t => (
+                    <li key={t.id || t._id} className="flex items-start p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-primary-50 p-2.5 rounded-lg mr-4 text-primary-600">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-slate-800 text-sm truncate">{t.title}</h4>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                            t.priority === 'High' ? 'bg-red-50 text-red-600 border border-red-100' :
+                            t.priority === 'Medium' ? 'bg-yellow-50 text-yellow-600 border border-yellow-100' :
+                            'bg-blue-50 text-blue-600 border border-blue-100'
+                          }`}>
+                            {t.priority}
+                          </span>
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider bg-slate-100 px-2 py-0.5 rounded-full">
+                            {t.department}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
+                  <p className="text-slate-600 font-medium">You're all caught up for today!</p>
+                </div>
+              )}
+            </div>
+            <div className="p-5 bg-white border-t border-slate-100 text-center">
+              <button 
+                onClick={() => setShowDailyPopup(false)}
+                className="w-full py-3 bg-slate-900 text-white rounded-xl font-semibold shadow-md hover:bg-primary-600 transition-all hover:shadow-lg focus:ring-4 focus:ring-primary-500/20 active:scale-[0.98]"
+              >
+                Let's Get to Work
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

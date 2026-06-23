@@ -15,6 +15,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
 
+class UserUpdate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=50)
+
+class PasswordUpdate(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6)
+
 class UserInDB(UserBase):
     id: str = Field(alias="_id")
     hashed_password: str
