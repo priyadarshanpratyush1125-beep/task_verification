@@ -16,6 +16,9 @@ const EmployeeDashboard = () => {
   const [proofImage, setProofImage] = useState(null);
   const [remarks, setRemarks] = useState('');
   
+  const [dynamicFields, setDynamicFields] = useState([]);
+  const [dynamicData, setDynamicData] = useState({});
+  
   // Daily popup state
   const [showDailyPopup, setShowDailyPopup] = useState(false);
 
@@ -56,23 +59,21 @@ const EmployeeDashboard = () => {
   const handleSubmitTask = async (e) => {
     e.preventDefault();
     if (!selectedTask) return;
+    if (!proofImage) {
+      alert("Please upload a proof image.");
+      return;
+    }
     
     setSubmitting(true);
     try {
-      // In a real app we would upload the image to Cloudinary here
-      // For now we will mock it
       const formData = new FormData();
-      formData.append('status', 'Submitted');
-      formData.append('completion_remarks', remarks);
-      formData.append('proof_image_url', 'https://res.cloudinary.com/demo/image/upload/sample.jpg'); // Mock URL
-      
-      const jsonData = {
-        status: 'Submitted',
-        completion_remarks: remarks,
-        proof_image_url: 'https://res.cloudinary.com/demo/image/upload/sample.jpg'
-      };
+      formData.append('proof_image', proofImage);
+      formData.append('remarks', remarks);
+      formData.append('dynamic_data', JSON.stringify(dynamicData));
 
-      await api.post(`/api/tasks/${selectedTask._id || selectedTask.id}/submit`, jsonData);
+      await api.post(`/api/tasks/${selectedTask._id || selectedTask.id}/submit`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       
       // Refresh tasks
       await fetchTasks();
@@ -85,16 +86,28 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const openModal = (task) => {
+  const openModal = async (task) => {
     setSelectedTask(task);
     setProofImage(null);
-    setRemarks(task.completion_remarks || '');
+    setRemarks(task.remarks || '');
+    setDynamicData(task.dynamic_data || {});
+    
+    // Fetch dynamic fields for department
+    try {
+      const res = await api.get(`/api/fields/${task.department}`);
+      setDynamicFields(res.data.fields || []);
+    } catch (err) {
+      console.error("Failed to fetch dynamic fields", err);
+      setDynamicFields([]);
+    }
   };
 
   const closeModal = () => {
     setSelectedTask(null);
     setProofImage(null);
     setRemarks('');
+    setDynamicFields([]);
+    setDynamicData({});
   };
 
   const pendingTasks = tasks.filter(t => t.status === 'Pending' || t.status === 'Rejected');
@@ -223,7 +236,7 @@ const EmployeeDashboard = () => {
       {selectedTask && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0 z-10">
               <h2 className="text-xl font-semibold text-slate-900">Task Details</h2>
               <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm">
                 <X className="w-5 h-5" />
@@ -258,16 +271,31 @@ const EmployeeDashboard = () => {
                   <div>
                     <h4 className="text-sm font-medium text-slate-700 mb-2">Your Remarks</h4>
                     <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      {selectedTask.completion_remarks || "No remarks provided."}
+                      {selectedTask.remarks || "No remarks provided."}
                     </p>
                   </div>
-                  {selectedTask.proof_image_url && (
+                  
+                  {/* Read Only Dynamic Data */}
+                  {selectedTask.dynamic_data && Object.keys(selectedTask.dynamic_data).length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-700 mb-2">Form Data</h4>
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm space-y-2 text-slate-600">
+                        {Object.entries(selectedTask.dynamic_data).map(([key, val]) => (
+                          <div key={key}>
+                            <span className="font-medium text-slate-800">{key}:</span> {val}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTask.proof_image && (
                     <div>
                       <h4 className="text-sm font-medium text-slate-700 mb-2">Proof Uploaded</h4>
                       <div className="rounded-lg border border-slate-200 overflow-hidden relative group">
-                        <img src={selectedTask.proof_image_url} alt="Proof" className="w-full h-48 object-cover" />
+                        <img src={selectedTask.proof_image} alt="Proof" className="w-full h-48 object-cover" />
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <a href={selectedTask.proof_image_url} target="_blank" rel="noreferrer" className="text-white text-sm font-medium hover:underline">
+                          <a href={selectedTask.proof_image} target="_blank" rel="noreferrer" className="text-white text-sm font-medium hover:underline">
                             View Full Image
                           </a>
                         </div>
@@ -313,7 +341,27 @@ const EmployeeDashboard = () => {
                     ></textarea>
                   </div>
 
-                  <div className="pt-4 flex justify-end gap-2">
+                  {dynamicFields.length > 0 && (
+                    <div className="pt-2">
+                      <h4 className="text-sm font-medium text-slate-700 mb-3">Required Department Fields</h4>
+                      <div className="space-y-3">
+                        {dynamicFields.map((field, idx) => (
+                          <div key={idx}>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">{field.name}</label>
+                            <input 
+                              required 
+                              type={field.type === 'number' ? 'number' : 'text'} 
+                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                              value={dynamicData[field.name] || ''}
+                              onChange={e => setDynamicData({...dynamicData, [field.name]: e.target.value})}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex justify-end gap-2 border-t border-slate-100 mt-6">
                     <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
                       Cancel
                     </button>
