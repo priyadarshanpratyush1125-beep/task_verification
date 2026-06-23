@@ -8,6 +8,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('employee'); // Default role
+  const [department, setDepartment] = useState('Maintenance');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -23,7 +24,8 @@ const Register = () => {
         name,
         email,
         password,
-        role
+        role,
+        department: role === 'employee' ? department : undefined
       });
       // Automatically redirect to login after successful registration
       navigate('/login', { state: { message: 'Registration successful! Please login.' } });
@@ -119,6 +121,22 @@ const Register = () => {
               <option value="admin">Admin / Supervisor</option>
             </select>
           </div>
+
+          {role === 'employee' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="block w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+              >
+                <option value="Maintenance">Maintenance</option>
+                <option value="Electrical">Electrical</option>
+                <option value="Mechanical">Mechanical</option>
+                <option value="Operations">Operations</option>
+              </select>
+            </div>
+          )}
 
           <button
             type="submit"

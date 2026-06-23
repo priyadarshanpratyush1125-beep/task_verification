@@ -401,7 +401,7 @@ const AdminDashboard = () => {
                     value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})}>
                     <option value="" disabled>Select Employee</option>
                     {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || 'General'})</option>
                     ))}
                   </select>
                 </div>

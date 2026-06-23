@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=50)
     email: EmailStr
     role: RoleEnum = RoleEnum.employee
+    department: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
