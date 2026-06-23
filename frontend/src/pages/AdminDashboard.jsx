@@ -480,19 +480,33 @@ const AdminDashboard = () => {
                   <div>
                     <h4 className="text-sm font-medium text-slate-700 mb-2">Employee Remarks</h4>
                     <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      {reviewTask.completion_remarks || "No remarks provided."}
+                      {reviewTask.remarks || "No remarks provided."}
                     </p>
                   </div>
-                  {reviewTask.proof_image_url && (
+                  {reviewTask.proof_image && (
                     <div>
                       <h4 className="text-sm font-medium text-slate-700 mb-2">Proof Uploaded</h4>
                       <div className="rounded-lg border border-slate-200 overflow-hidden relative group">
-                        <img src={reviewTask.proof_image_url} alt="Proof" className="w-full h-48 object-cover" />
+                        <img src={reviewTask.proof_image} alt="Proof" className="w-full h-48 object-cover" />
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <a href={reviewTask.proof_image_url} target="_blank" rel="noreferrer" className="text-white text-sm font-medium hover:underline">
+                          <a href={reviewTask.proof_image} target="_blank" rel="noreferrer" className="text-white text-sm font-medium hover:underline">
                             View Full Image
                           </a>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {reviewTask.dynamic_data && Object.keys(reviewTask.dynamic_data).length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-700 mb-2">Task Data Submitted</h4>
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2">
+                        {Object.entries(reviewTask.dynamic_data).map(([key, value]) => (
+                          <div key={key} className="flex justify-between items-center border-b border-slate-200/60 pb-1 last:border-0 last:pb-0">
+                            <span className="text-xs font-medium text-slate-500">{key}</span>
+                            <span className="text-sm text-slate-800 font-medium">{value.toString()}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
