@@ -262,49 +262,6 @@ const EmployeeDashboard = () => {
         ) : (
           <>
             {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          </div>
-        ) : displayedTasks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-            <ClipboardList className="mx-auto h-12 w-12 text-slate-300 mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-1">No tasks found</h3>
-            <p className="text-slate-500 text-sm">
-              {activeTab === 'pending' ? "You're all caught up! No pending tasks assigned." : "No completed tasks yet."}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedTasks.map((task) => (
-              <div 
-                key={task._id || task.id} 
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"
-                onClick={() => openModal(task)}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(task.status)}`}>
-                    {task.status}
-                  </span>
-                  <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                    {task.department}
-                  </span>
-                </div>
-                
-                <h3 className="font-semibold text-slate-900 text-lg mb-2 group-hover:text-primary-600 transition-colors">
-                  {task.title}
-                </h3>
-                <p className="text-slate-500 text-sm line-clamp-2 mb-4">
-                  {task.description}
-                </p>
-                
-                <div className="pt-4 border-t border-slate-100 flex justify-between items-center mt-auto">
-                  <div className="flex items-center text-xs text-slate-500">
-                    <Clock className="w-3.5 h-3.5 mr-1" />
-                    Priority: <span className="font-medium ml-1 text-slate-700">{task.priority}</span>
-                  </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); openModal(task); }}
-                    className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
               </div>
