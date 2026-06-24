@@ -4,7 +4,7 @@ import { User, Lock, LogOut, Save, AlertCircle, CheckCircle } from 'lucide-react
 import api from '../api/axios';
 
 const Profile = () => {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, updateUser } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('profile');
   
   // Profile State
@@ -30,9 +30,12 @@ const Profile = () => {
     setProfileLoading(true);
     setProfileMessage(null);
     try {
-      await api.put('/api/users/me', { name });
+      const response = await api.put('/api/users/me', { name });
       setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
-      // In a real app, you'd want to update the AuthContext user object here too.
+      // Update the AuthContext user object
+      if (typeof updateUser === 'function') {
+        updateUser(response.data);
+      }
     } catch (err) {
       setProfileMessage({ type: 'error', text: err.response?.data?.detail || 'Failed to update profile.' });
     } finally {
