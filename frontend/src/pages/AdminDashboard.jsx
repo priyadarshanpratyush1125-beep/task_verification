@@ -144,7 +144,7 @@ const AdminDashboard = () => {
     if (!reviewLeave) return;
     setReviewing(true);
     try {
-      await api.put(`/api/leaves/${reviewLeave.id}/review`, {
+      await api.put(`/api/leaves/${reviewLeave._id || reviewLeave.id}/review`, {
         status,
         admin_remarks: adminRemarks
       });
