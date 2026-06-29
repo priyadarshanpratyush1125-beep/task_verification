@@ -95,9 +95,7 @@ const EmployeeDashboard = () => {
       formData.append('remarks', remarks);
       formData.append('dynamic_data', JSON.stringify(dynamicData));
 
-      await api.post(`/api/tasks/${selectedTask._id || selectedTask.id}/submit`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await api.post(`/api/tasks/${selectedTask._id || selectedTask.id}/submit`, formData);
       
       // Refresh tasks
       await fetchTasks();
@@ -114,7 +112,7 @@ const EmployeeDashboard = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/api/leaves', leaveForm);
+      await api.post('/api/leaves/', leaveForm);
       setShowLeaveModal(false);
       setLeaveForm({ start_date: '', end_date: '', reason: '' });
       fetchLeaves();
@@ -133,13 +131,17 @@ const EmployeeDashboard = () => {
     setRemarks(task.remarks || '');
     setDynamicData(task.dynamic_data || {});
     
-    // Fetch dynamic fields for department
-    try {
-      const res = await api.get(`/api/fields/${task.department}`);
-      setDynamicFields(res.data.fields || []);
-    } catch (err) {
-      console.error("Failed to fetch dynamic fields", err);
-      setDynamicFields([]);
+    if (task.custom_fields && task.custom_fields.length > 0) {
+      setDynamicFields(task.custom_fields);
+    } else {
+      // Fetch dynamic fields for department as fallback for older tasks
+      try {
+        const res = await api.get(`/api/fields/${task.department}`);
+        setDynamicFields(res.data.fields || []);
+      } catch (err) {
+        console.error("Failed to fetch dynamic fields", err);
+        setDynamicFields([]);
+      }
     }
   };
 
@@ -455,7 +457,7 @@ const EmployeeDashboard = () => {
 
                   {dynamicFields.length > 0 && (
                     <div className="pt-2">
-                      <h4 className="text-sm font-medium text-slate-700 mb-3">Required Department Fields</h4>
+                      <h4 className="text-sm font-medium text-slate-700 mb-3">Required Custom Fields</h4>
                       <div className="space-y-3">
                         {dynamicFields.map((field, idx) => (
                           <div key={idx}>

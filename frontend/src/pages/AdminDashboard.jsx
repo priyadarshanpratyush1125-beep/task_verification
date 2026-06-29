@@ -23,7 +23,7 @@ const AdminDashboard = () => {
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [employees, setEmployees] = useState([]);
-  const [dynamicFields, setDynamicFields] = useState([]);
+  const [customFields, setCustomFields] = useState([]);
   
   // Review state
   const [reviewTask, setReviewTask] = useState(null);
@@ -38,6 +38,22 @@ const AdminDashboard = () => {
     department: 'Maintenance',
     priority: 'Medium'
   });
+
+  const addCustomField = () => {
+    setCustomFields([...customFields, { name: '', type: 'text' }]);
+  };
+
+  const updateCustomField = (index, key, value) => {
+    const newFields = [...customFields];
+    newFields[index][key] = value;
+    setCustomFields(newFields);
+  };
+
+  const removeCustomField = (index) => {
+    const newFields = [...customFields];
+    newFields.splice(index, 1);
+    setCustomFields(newFields);
+  };
 
   useEffect(() => {
     fetchTasks();
@@ -78,34 +94,25 @@ const AdminDashboard = () => {
 
   const openAssignModal = async () => {
     setShowModal(true);
+    setCustomFields([]);
     try {
       const empRes = await api.get('/api/users/employees');
       setEmployees(empRes.data);
-      fetchDynamicFields(newTask.department);
     } catch (err) {
       console.error("Failed to load employees");
-    }
-  };
-
-  const fetchDynamicFields = async (dept) => {
-    try {
-      const res = await api.get(`/api/fields/${dept}`);
-      setDynamicFields(res.data.fields || []);
-    } catch (err) {
-      setDynamicFields([]);
     }
   };
 
   const handleDepartmentChange = (e) => {
     const dept = e.target.value;
     setNewTask({...newTask, department: dept});
-    fetchDynamicFields(dept);
   };
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/api/tasks', newTask);
+      const taskPayload = { ...newTask, custom_fields: customFields };
+      await api.post('/api/tasks/', taskPayload);
       setShowModal(false);
       fetchTasks();
       fetchAnalytics();
@@ -116,8 +123,9 @@ const AdminDashboard = () => {
         department: 'Maintenance',
         priority: 'Medium'
       });
+      setCustomFields([]);
     } catch (err) {
-      alert("Failed to assign task");
+      alert(err.response?.data?.detail || "Failed to assign task");
     }
   };
 
@@ -490,6 +498,7 @@ const AdminDashboard = () => {
                   <select required className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
                     value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})}>
                     <option value="" disabled>Select Employee</option>
+                    <option value="auto" className="font-bold text-primary-700 bg-primary-50">✨ Auto Assign (Least Busy)</option>
                     {employees.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || 'General'})</option>
                     ))}
@@ -518,17 +527,42 @@ const AdminDashboard = () => {
                 </select>
               </div>
 
-              {/* Dynamic Fields Preview */}
+              {/* Custom Fields Builder */}
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-100 mt-2">
-                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Required Proof Fields (Preview)</h4>
-                {dynamicFields.length > 0 ? (
-                  <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
-                    {dynamicFields.map((field, i) => (
-                      <li key={i}>{field.name} <span className="text-slate-400 text-xs">({field.type})</span></li>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Task Schema</h4>
+                  <button type="button" onClick={addCustomField} className="text-xs font-medium text-primary-600 hover:text-primary-800">
+                    + Add Field
+                  </button>
+                </div>
+                {customFields.length > 0 ? (
+                  <div className="space-y-3 mt-3">
+                    {customFields.map((field, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <input 
+                          type="text" 
+                          placeholder="Field Name" 
+                          required
+                          className="flex-1 px-2 py-1 border border-slate-200 rounded text-sm focus:ring-1 focus:ring-primary-500" 
+                          value={field.name} 
+                          onChange={e => updateCustomField(i, 'name', e.target.value)} 
+                        />
+                        <select 
+                          className="w-28 px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-1 focus:ring-primary-500"
+                          value={field.type} 
+                          onChange={e => updateCustomField(i, 'type', e.target.value)}
+                        >
+                          <option value="text">Text</option>
+                          <option value="number">Number</option>
+                        </select>
+                        <button type="button" onClick={() => removeCustomField(i)} className="text-red-500 hover:text-red-700 p-1">
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 ) : (
-                  <p className="text-xs text-slate-400">No dynamic fields configured for this department yet.</p>
+                  <p className="text-xs text-slate-400 mt-2">No custom fields added. Employees will only submit a proof image and remarks.</p>
                 )}
               </div>
 

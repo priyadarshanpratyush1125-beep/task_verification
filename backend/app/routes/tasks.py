@@ -24,18 +24,41 @@ async def create_task(
 ) -> Any:
     db = get_database()
     
-    # Validate assigned_to exists and is an employee
-    try:
-        user_obj_id = ObjectId(task_in.assigned_to)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid assigned_to User ID format")
+    if task_in.assigned_to == "auto":
+        employees_cursor = db.users.find({"role": RoleEnum.employee, "department": task_in.department})
+        employees = await employees_cursor.to_list(length=100)
         
-    employee_doc = await db.users.find_one({"_id": user_obj_id})
-    if not employee_doc:
-        raise HTTPException(status_code=404, detail="Assigned user not found")
+        if not employees:
+            # Fallback to any employee in the system if the selected department has no employees
+            employees_cursor = db.users.find({"role": RoleEnum.employee})
+            employees = await employees_cursor.to_list(length=100)
+            
+            if not employees:
+                raise HTTPException(status_code=400, detail="No employees found in the system")
+            
+        least_busy_emp = None
+        min_tasks = float('inf')
         
-    if employee_doc.get("role") != RoleEnum.employee:
-        raise HTTPException(status_code=400, detail="Tasks can only be assigned to employees")
+        for emp in employees:
+            pending_count = await db.tasks.count_documents({"assigned_to": str(emp["_id"]), "status": TaskStatusEnum.pending})
+            if pending_count < min_tasks:
+                min_tasks = pending_count
+                least_busy_emp = emp
+                
+        task_in.assigned_to = str(least_busy_emp["_id"])
+    else:
+        # Validate assigned_to exists and is an employee
+        try:
+            user_obj_id = ObjectId(task_in.assigned_to)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid assigned_to User ID format")
+            
+        employee_doc = await db.users.find_one({"_id": user_obj_id})
+        if not employee_doc:
+            raise HTTPException(status_code=404, detail="Assigned user not found")
+            
+        if employee_doc.get("role") != RoleEnum.employee:
+            raise HTTPException(status_code=400, detail="Tasks can only be assigned to employees")
         
     task_dict = task_in.model_dump()
     task_dict["created_at"] = datetime.utcnow()

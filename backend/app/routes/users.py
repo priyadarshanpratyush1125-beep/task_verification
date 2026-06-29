@@ -21,11 +21,9 @@ async def get_all_employees(
     return employees
 
 @router.get("/me", response_model=UserResponse)
-async def get_my_profile(current_user: dict = Depends(get_current_user)) -> Any:
-    # current_user from get_current_user is already a dict without _id if processed, 
-    # but let's re-fetch from db to be safe and accurate.
+async def get_my_profile(current_user: UserInDB = Depends(get_current_user)) -> Any:
     db = get_database()
-    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    user = await db.users.find_one({"_id": ObjectId(current_user.id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user["id"] = str(user.pop("_id"))
@@ -34,16 +32,16 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)) -> Any:
 @router.put("/me", response_model=UserResponse)
 async def update_my_profile(
     update_data: UserUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: UserInDB = Depends(get_current_user)
 ) -> Any:
     db = get_database()
     
     result = await db.users.update_one(
-        {"_id": ObjectId(current_user["id"])},
+        {"_id": ObjectId(current_user.id)},
         {"$set": {"name": update_data.name}}
     )
     
-    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    user = await db.users.find_one({"_id": ObjectId(current_user.id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user["id"] = str(user.pop("_id"))
@@ -52,10 +50,10 @@ async def update_my_profile(
 @router.put("/password")
 async def update_my_password(
     password_data: PasswordUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: UserInDB = Depends(get_current_user)
 ) -> Any:
     db = get_database()
-    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    user = await db.users.find_one({"_id": ObjectId(current_user.id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -69,7 +67,7 @@ async def update_my_password(
     # Update to new password
     hashed_password = get_password_hash(password_data.new_password)
     await db.users.update_one(
-        {"_id": ObjectId(current_user["id"])},
+        {"_id": ObjectId(current_user.id)},
         {"$set": {"hashed_password": hashed_password}}
     )
     

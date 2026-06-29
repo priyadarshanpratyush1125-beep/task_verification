@@ -24,6 +24,7 @@ class TaskBase(BaseModel):
     priority: TaskPriorityEnum = TaskPriorityEnum.high
     remarks: Optional[str] = ""
     proof_image: Optional[str] = ""
+    custom_fields: Optional[list[dict]] = Field(default_factory=list)
     dynamic_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class TaskCreate(TaskBase):
